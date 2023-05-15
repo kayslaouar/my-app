@@ -1,49 +1,85 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import './App.css';
 
 function App() {
-	const [direction, setDirection] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [device, setDevice] = useState(null);
+  const [characteristic, setCharacteristic] = useState(null);
 
-	const handleClick = dir => {
-		setDirection(dir);
-		axios
-			.post(`http://256finalprojectckm.local/control?direction=${dir}`)
-			.then(response => {
-				console.log(response.data);
-			})
-			.catch(error => {
-				console.log(error);
-			});
-	};
+  const handleClick = async () => {
+    let [from_x, from_y] = from.split(',');
+    let [to_x, to_y] = to.split(',');
+    console.log(from_x, from_y);
+    console.log(to_x, to_y);
 
-	return (
-		<div className="container">
-			<div className="row justify-content-center align-items-center">
-				<div className="col-auto">
-					<h1>Crane Control</h1>
-					<div className="btn-group-vertical" role="group">
-						<button type="button" className="btn btn-primary" onClick={() => handleClick('down')}>
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-up" viewBox="0 0 16 16">
-								<path
-									fillRule="evenodd"
-									d="M7.5 2a.5.5 0 0 1 .5.5v8.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 .708-.708L7 11.293V2.5a.5.5 0 0 1 .5-.5z"
-								/>
-							</svg>
-						</button>
-						<button type="button" className="btn btn-primary" onClick={() => handleClick('up')}>
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-arrow-down" viewBox="0 0 16 16">
-								<path
-									fillRule="evenodd"
-									d="M7.5 14a.5.5 0 0 0 .5-.5V4.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 0 0 .708.708L7 4.707v8.793a.5.5 0 0 0 .5.5z"
-								/>
-							</svg>
-						</button>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
+    if (characteristic) {
+      const data = new Uint8Array([from_x, from_y, to_x, to_y]);
+      await characteristic.writeValue(data);
+      console.log('Data sent to Arduino');
+    } else {
+      console.log('Bluetooth characteristic not available');
+    }
+  };
+
+  const handleFromChange = (event) => {
+    setFrom(event.target.value);
+  };
+
+  const handleToChange = (event) => {
+    setTo(event.target.value);
+  };
+
+  const connectToDevice = async () => {
+    try {
+      const options = { filters: [{ name: 'Arduino' }] };
+      const device = await navigator.bluetooth.requestDevice(options);
+      setDevice(device);
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService('0000180a-0000-1000-8000-00805f9b34fb');
+      const characteristic = await service.getCharacteristic('00002a37-0000-1000-8000-00805f9b34fb');
+      setCharacteristic(characteristic);
+      console.log('Connected to Arduino');
+    } catch (error) {
+      console.log('Bluetooth connection error:', error);
+    }
+  };
+
+  return (
+    <div className="container">
+      <div className="row justify-content-center align-items-center">
+        <div className="col-auto">
+          <h1>Chess</h1>
+          <div className="btn-group-vertical" role="group">
+            <div className="input-group">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Enter from"
+                value={from}
+                onChange={handleFromChange}
+              />
+            </div>
+            <div className="input-group">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Enter to"
+                value={to}
+                onChange={handleToChange}
+              />
+            </div>
+          </div>
+          <button type="button" className="btn btn-primary" onClick={connectToDevice}>
+            Connect
+          </button>
+          <button type="button" className="btn btn-primary" onClick={handleClick} disabled={!characteristic}>
+            Submit
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default App;
